@@ -92,6 +92,14 @@ for posicion in posiciones:
     # Hacemos clic en el botón de búsqueda
     search_button.click()
 
+    try:
+        close_popup = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, '//span[@class="jlu-icon jlu-icon_close shop-overlay__close"]'))
+        )
+        close_popup.click()
+    except TimeoutException:
+        print("No hay pop-up para cerrar.")
+
     # Ahora extraemos los datos de la lista de trabajos
     job_list = WebDriverWait(driver, 15).until(
         EC.presence_of_all_elements_located((By.XPATH, '//div[@class="serp-list js-serp-list"]/li'))
@@ -111,20 +119,6 @@ for posicion in posiciones:
             'Descripción': description,
             'Posición': posicion
         })
-
-    # Limpiar el campo de búsqueda para la siguiente posición
-    search_input.clear()
-
-    # Enviamos la posición al campo de búsqueda
-    search_input.send_keys(posicion)
-    
-    # Esperamos hasta que el botón de búsqueda esté clickable
-    search_button = WebDriverWait(driver, 5).until(
-        EC.element_to_be_clickable((By.XPATH, '//button[@aria-label="ui-button"]'))
-    )
-
-    # Hacemos clic en el botón de búsqueda
-    search_button.click()
 
     # Esperamos unos segundos para que los resultados se carguen
     sleep(2)
