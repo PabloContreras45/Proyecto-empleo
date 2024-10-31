@@ -25,6 +25,8 @@ df = df.drop(columns=['Unnamed: 0'])
 df = df.drop_duplicates()
 df.info()
 
+df.head(5)
+
 # Función para limpiar el salario:
 def limpieza_salario(rango_salarios):
     rango_salarios = rango_salarios.replace('EUR','').replace(',','')
@@ -39,7 +41,7 @@ def limpieza_salario(rango_salarios):
 df['Sueldo medio'] = df['Sueldo'].apply(limpieza_salario)
 df = df.drop(columns='Sueldo')
 
-df.head(5)
+
 # Elimina el texto entre paréntesis en la columna 'título'
 df['Título'] = df['Título'].str.replace(r'\(.*?\)', '', regex=True)
 
@@ -188,7 +190,7 @@ def clasificar_rol(titulo):
 df['Puesto'] = df['Título'].apply(clasificar_rol)
 # Reordenar columnas en el orden especificado
 columnas_ordenadas = [
-    'Título', 'Puesto', 'Expertise', 'Empresa', 'Modalidad', 'Sector', 
+    'Título', 'Puesto', 'Sueldo medio','Expertise', 'Empresa', 'Modalidad', 'Sector', 
     'Ubicación', 'Descripción', 'Servicios', 'Otro Idioma'
 ]
 df = df[columnas_ordenadas]
@@ -333,143 +335,7 @@ def classify_services(services):
 # Aplicar la función a cada fila
 df_new = df['Servicios'].apply(classify_services)
 
+# Concadenamos el df original y el ampliado
+df_final = pd.concat([df,df_new],axis=0,ignore_index=True)
 
-
-# Combinar los resultados en un nuevo DataFrame
-result_df = pd.concat([df, df_new], axis=1)
-
-result_df.to_csv("finalResult.csv", index = False)
-# Cargar los datos desde un archivo CSV
-data = pd.read_csv('finalResult.csv')
-
-# Verificar las primeras filas de los datos
-print(data.head())
-
-# Preparar los datos para el clustering (selecciona las características relevantes)
-X = data[['Puesto', 'Expertise', 'Sector']]
-
-# Convertir variables categóricas a numéricas
-X['Puesto'] = X['Puesto'].astype('category').cat.codes
-X['Expertise'] = X['Expertise'].astype('category').cat.codes
-X['Sector'] = X['Sector'].astype('category').cat.codes
-
-# Aplicar K-means para segmentar los datos
-kmeans = KMeans(n_clusters=3, random_state=0)
-data['Segmento'] = kmeans.fit_predict(X)
-
-# Visualizar la cantidad de ofertas por segmento
-segment_counts = data['Segmento'].value_counts().reset_index()
-segment_counts.columns = ['Segmento', 'Cantidad']
-
-# Gráfico de barras mostrando la cantidad de ofertas por segmento
-fig_barras = go.Figure(data=[
-    go.Bar(x=segment_counts['Segmento'], y=segment_counts['Cantidad'], 
-           marker=dict(color='royalblue'))
-])
-
-# Configurar el layout del gráfico de barras
-fig_barras.update_layout(
-    title='Cantidad de Ofertas por Segmento',
-    xaxis_title='Segmento',
-    yaxis_title='Cantidad de Ofertas'
-)
-
-# Guardar el gráfico como archivo HTML y abrirlo en el navegador
-pio.write_html(fig_barras, 'grafico_barras.html')
-import webbrowser
-webbrowser.open('grafico_barras.html')
-
-# Gráfico de dispersión mostrando los diferentes segmentos
-fig_dispersion = go.Figure()
-
-# Agregar trazas para cada segmento
-for segmento in data['Segmento'].unique():
-    seg_data = data[data['Segmento'] == segmento]
-    fig_dispersion.add_trace(go.Scatter(
-        x=seg_data['Puesto'], 
-        y=seg_data['Expertise'], 
-        mode='markers',
-        name=f'Segmento {segmento}',
-        text=seg_data['Descripción'],  # Mostrar descripción al pasar el ratón
-        marker=dict(size=10)
-    ))
-
-# Configurar el layout del gráfico de dispersión
-fig_dispersion.update_layout(
-    title='Resultados del Análisis de Segmentación',
-    xaxis_title='Puesto',
-    yaxis_title='Expertise',
-    legend_title='Segmentos',
-    hovermode='closest'
-)
-
-# Guardar el gráfico de dispersión como archivo HTML y abrirlo en el navegador
-pio.write_html(fig_dispersion, 'grafico_dispersion.html')
-webbrowser.open('grafico_dispersion.html')
-# Asegurarte de que el DataFrame tiene los nombres de columnas correctos
-result_df.columns = [
-    "Título", "Puesto", "Expertise", "Empresa", "Modalidad", "Sector", 
-    "Ubicación", "Descripción", "Servicios", "Otro_Idioma", "EntornoTEC", 
-    "Beneficios", "Habilidades", "Herramientas", "Educación"
-]
-
-# Conectar a la base de datos SQLite
-conn = sqlite3.connect('database.db')
-cursor = conn.cursor()
-
-# Eliminar la tabla si existe, y luego crearla de nuevo con los nombres de columnas correctos
-cursor.execute("DROP TABLE IF EXISTS job_data")
-cursor.execute('''
-    CREATE TABLE job_data (
-        Título TEXT,
-        Puesto TEXT,
-        Expertise TEXT,
-        Empresa TEXT,
-        Modalidad TEXT,
-        Sueldo medio TEXT,
-        Sector TEXT,
-        Ubicación TEXT,
-        Descripción TEXT,
-        Servicios TEXT,
-        Otro_Idioma TEXT,
-        EntornoTEC TEXT,
-        Beneficios TEXT,
-        Habilidades TEXT,
-        Herramientas TEXT,
-        Educación TEXT
-    )
-''')
-
-# Insertar el DataFrame en la tabla de SQLite
-result_df.to_sql('job_data', conn, if_exists='append', index=False)
-
-# Verificar que los datos se hayan guardado correctamente
-df_check = pd.read_sql("SELECT * FROM job_data LIMIT 5", conn)
-print(df_check)
-
-# Cerrar la conexión
-conn.close()
-# Conectar a la base de datos SQLite
-conn = sqlite3.connect('database.db')
-
-# Leer los datos de la tabla 'job_data' en un DataFrame de pandas
-query = "SELECT * FROM job_data LIMIT 5"
-df_check = pd.read_sql(query, conn)
-
-# Mostrar el DataFrame para verificar que los datos se hayan guardado
-print(df_check)
-
-# Cerrar la conexión
-conn.close()
- # Conectar a la base de datos SQLite
-conn = sqlite3.connect('database.db')
-
-# Consultar los datos donde la ubicación es "Madrid"
-query = "SELECT * FROM job_data WHERE Ubicación = 'Madrid'"
-df_madrid = pd.read_sql(query, conn)
-
-# Mostrar el DataFrame con los registros de Madrid
-print(df_madrid)
-
-# Cerrar la conexión
-conn.close()
+df_final = df_final.dropna(subset=['Título'])
