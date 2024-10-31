@@ -339,3 +339,6 @@ df_new = df['Servicios'].apply(classify_services)
 df_final = pd.concat([df,df_new],axis=0,ignore_index=True)
 
 df_final = df_final.dropna(subset=['Título'])
+
+df_final['Sueldo_medio'] = df_final['Sueldo medio']
+df_final.drop(columns='Sueldo medio')
