@@ -342,3 +342,82 @@ df_final = df_final.dropna(subset=['Título'])
 
 df_final['Sueldo_medio'] = df_final['Sueldo medio']
 df_final.drop(columns='Sueldo medio')
+
+
+# Combinar los resultados en un nuevo DataFrame
+df_final = pd.concat([df, df_new], axis=1)
+
+df_final.to_csv("Datos_definitivos.csv", index = False)
+# Cargar los datos desde un archivo CSV
+data = pd.read_csv('Datos_definitivos.csv')
+
+# Verificar las primeras filas de los datos
+print(data.head())
+
+# Preparar los datos para el clustering (selecciona las características relevantes)
+X = data[['Puesto', 'Expertise', 'Sector']]
+
+# Convertir variables categóricas a numéricas
+X['Puesto'] = X['Puesto'].astype('category').cat.codes
+X['Expertise'] = X['Expertise'].astype('category').cat.codes
+X['Sector'] = X['Sector'].astype('category').cat.codes
+
+# Aplicar K-means para segmentar los datos
+kmeans = KMeans(n_clusters=3, random_state=0)
+data['Segmento'] = kmeans.fit_predict(X)
+
+# Visualizar la cantidad de ofertas por segmento
+segment_counts = data['Segmento'].value_counts().reset_index()
+segment_counts.columns = ['Segmento', 'Cantidad']
+
+# Gráfico de barras mostrando la cantidad de ofertas por segmento
+fig_barras = go.Figure(data=[
+    go.Bar(x=segment_counts['Segmento'], y=segment_counts['Cantidad'], 
+           marker=dict(color='royalblue'))
+])
+
+# Configurar el layout del gráfico de barras
+fig_barras.update_layout(
+    title='Cantidad de Ofertas por Segmento',
+    xaxis_title='Segmento',
+    yaxis_title='Cantidad de Ofertas'
+)
+
+# Guardar el gráfico como archivo HTML y abrirlo en el navegador
+pio.write_html(fig_barras, 'grafico_barras.html')
+import webbrowser
+webbrowser.open('grafico_barras.html')
+
+# Gráfico de dispersión mostrando los diferentes segmentos
+fig_dispersion = go.Figure()
+
+# Agregar trazas para cada segmento
+for segmento in data['Segmento'].unique():
+    seg_data = data[data['Segmento'] == segmento]
+    fig_dispersion.add_trace(go.Scatter(
+        x=seg_data['Puesto'], 
+        y=seg_data['Expertise'], 
+        mode='markers',
+        name=f'Segmento {segmento}',
+        text=seg_data['Descripción'],  # Mostrar descripción al pasar el ratón
+        marker=dict(size=10)
+    ))
+
+# Configurar el layout del gráfico de dispersión
+fig_dispersion.update_layout(
+    title='Resultados del Análisis de Segmentación',
+    xaxis_title='Puesto',
+    yaxis_title='Expertise',
+    legend_title='Segmentos',
+    hovermode='closest'
+)
+
+# Guardar el gráfico de dispersión como archivo HTML y abrirlo en el navegador
+pio.write_html(fig_dispersion, 'grafico_dispersion.html')
+webbrowser.open('grafico_dispersion.html')
+# Asegurarte de que el DataFrame tiene los nombres de columnas correctos
+df_final.columns = [
+    "Título", "Puesto", 'Sueldo_medio',"Expertise", "Empresa", "Modalidad", "Sector", 
+    "Ubicación", "Descripción", "Servicios", "Otro_Idioma", "EntornoTEC", 
+    "Beneficios", "Habilidades", "Herramientas", "Educación"
+]
