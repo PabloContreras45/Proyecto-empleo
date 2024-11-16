@@ -2,77 +2,67 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Cargar el dataset y procesarlo
 @st.cache_data
 def load_data():
+    # Cargar los datos desde un archivo CSV
     df = pd.read_csv('Datos_postlimpieza.csv')
 
-    # Creamos el enconder para transformar en números las variables categóricas
-    clase_LabelEncoder = LabelEncoder()
-    df['Puesto'] = clase_LabelEncoder.fit_transform(df["Puesto"])
-    df['Expertise'] = clase_LabelEncoder.fit_transform(df["Expertise"])
-    df['Ubicación'] = clase_LabelEncoder.fit_transform(df["Ubicación"])
-    df['Servicios'] = clase_LabelEncoder.fit_transform(df["Servicios"])
-    df['Habilidades'] = clase_LabelEncoder.fit_transform(df["Habilidades"])
-    df['Herramientas'] = clase_LabelEncoder.fit_transform(df["Herramientas"])
-    df['Educación'] = clase_LabelEncoder.fit_transform(df["Educación"])
+    # Crear un LabelEncoder para las variables categóricas
+    label_encoder = LabelEncoder()
+    # Aplicar LabelEncoder a las columnas categóricas, excepto "Ubicación"
+    df['Puesto'] = label_encoder.fit_transform(df['Puesto'])
+    df['Expertise'] = label_encoder.fit_transform(df['Expertise'])
+    df['Servicios'] = label_encoder.fit_transform(df['Servicios'])
+    df['Habilidades'] = label_encoder.fit_transform(df['Habilidades'])
+    df['Herramientas'] = label_encoder.fit_transform(df['Herramientas'])
+    df['Educación'] = label_encoder.fit_transform(df['Educación'])
 
-    # Eliminamos las columnas con una alta presencia de NaNs o innecesarias
-    df = df.drop(columns=['Título','Empresa','Modalidad','Sector','Descripción','Otro Idioma','EntornoTEC','Beneficios'])
-    return df, clase_LabelEncoder
+    # Eliminar columnas no necesarias para el modelo
+    df = df.drop(columns=['Título', 'Empresa', 'Modalidad', 'Sector', 'Descripción', 'Otro Idioma', 'EntornoTEC', 'Beneficios'])
+
+    return df, label_encoder
 
 # Función para borrar el caché y actualizar los datos
 def clear_data_cache():
-    st.cache_data.clear_cache()  # Borra el caché de la función load_data
+    st.cache_data.clear_cache()
     st.success("¡Caché borrado con éxito! Los datos se actualizarán en la siguiente carga.")
 
-# Función para realizar las predicciones
-def make_predictions(model, scaler, X_test, y_test, clase_LabelEncoder):
-    yhat = model.predict(X_test)
+# Cargar los datos
+df, label_encoder = load_data()
 
-    # Evaluamos la precisión
-    accuracy = accuracy_score(y_test, yhat)
-    
-    # Reporte de clasificación
-    classification_rep = classification_report(y_test, yhat, target_names=clase_LabelEncoder.classes_)
-    
-    # Matriz de confusión
-    conf_matrix = confusion_matrix(y_test, yhat)
-    
-    return accuracy, classification_rep, conf_matrix, yhat
+# Seleccionar las columnas relevantes para el modelo
+feature_columns = ['Expertise', 'Ubicación', 'Servicios', 'Habilidades', 'Herramientas', 'Educación']
+X = df[feature_columns]  # Variables predictoras
+y = df['Puesto']  # Variable objetivo
 
-# Cargar datos
-df, clase_LabelEncoder = load_data()
-
-# Creación de las variables de entrada (X) y salida (y)
-X = np.array(df.drop("Puesto", axis=1))  # Variables predictoras
-y = np.array(df["Puesto"])  # Variable objetivo
-
-# División en conjunto de entrenamiento y prueba (80% entrenamiento, 20% prueba)
+# Dividir en conjunto de entrenamiento y prueba (80% entrenamiento, 20% prueba)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
-# Escalado de las características
-x_scaler = MinMaxScaler()
-X_train = x_scaler.fit_transform(X_train)  # Escalamos solo el conjunto de entrenamiento
-X_test = x_scaler.transform(X_test)  # Aplicamos el mismo escalado al conjunto de prueba
+# Crear un LabelEncoder para "Ubicación"
+ubicacion_encoder = LabelEncoder()
+X_train['Ubicación'] = ubicacion_encoder.fit_transform(X_train['Ubicación'])
+X_test['Ubicación'] = ubicacion_encoder.transform(X_test['Ubicación'])
+
+# Escalar las características (normalización)
+scaler = MinMaxScaler()
+X_train_scaled = scaler.fit_transform(X_train)  # Ajustar y transformar el conjunto de entrenamiento
+X_test_scaled = scaler.transform(X_test)        # Transformar el conjunto de prueba
 
 # Crear y entrenar el modelo KNN
 model = KNeighborsClassifier(n_neighbors=3)
-model.fit(X_train, y_train)
+model.fit(X_train_scaled, y_train)
 
 # Configuración de la app de Streamlit
 st.title("Clasificador de Puesto de Trabajo")
 
-# Opción para borrar el caché y actualizar los datos
-if st.button("Borrar caché y actualizar datos"):
-    clear_data_cache()
-
-# Mostrar datos crudos
+# Mostrar datos crudos (opcional)
 if st.checkbox("Mostrar datos crudos"):
     st.write(df)
 
@@ -87,29 +77,60 @@ habilidades = st.selectbox("Seleccione sus Habilidades", df['Habilidades'].uniqu
 herramientas = st.selectbox("Seleccione las Herramientas", df['Herramientas'].unique())
 educacion = st.selectbox("Seleccione su nivel de Educación", df['Educación'].unique())
 
-# Convertir los valores seleccionados en números para hacer la predicción
-data_input = np.array([[expertise, ubicacion, servicios, habilidades, herramientas, educacion]])
+# Convertir los valores seleccionados en un array numérico para hacer la predicción
+input_data = np.array([[expertise, ubicacion, servicios, habilidades, herramientas, educacion]])
 
-# Escalar la entrada del usuario
-data_input_scaled = x_scaler.transform(data_input)
+# Codificar la "Ubicación" seleccionada en un número utilizando el LabelEncoder
+ubicacion_encoded = ubicacion_encoder.transform([ubicacion])[0]
+input_data[0][1] = ubicacion_encoded  # Sustituir la ubicación con el valor codificado
+
+# Escalar la entrada del usuario (aplicando el mismo escalado que a los datos)
+input_data_scaled = scaler.transform(input_data)
 
 # Realizar la predicción
 if st.button("Predecir Puesto"):
-    prediction = model.predict(data_input_scaled)
-    predicted_label = clase_LabelEncoder.inverse_transform(prediction)[0]
+    # Predecir el puesto de trabajo con el modelo entrenado
+    prediction = model.predict(input_data_scaled)
+    predicted_label = label_encoder.inverse_transform(prediction)[0]
     st.write(f"El puesto de trabajo predicho es: {predicted_label}")
 
 # Evaluación del modelo
 if st.button("Evaluar modelo"):
-    accuracy, classification_rep, conf_matrix, yhat = make_predictions(model, x_scaler, X_test, y_test, clase_LabelEncoder)
+    y_pred = model.predict(X_test_scaled)
 
-    # Mostrar la precisión
+    # Evaluar precisión
+    accuracy = accuracy_score(y_test, y_pred)
     st.write(f"Precisión del modelo: {accuracy:.2f}")
 
-    # Mostrar el reporte de clasificación
+    # Extraer etiquetas presentes en y_test
+    labels_present = np.unique(y_test)
+    target_names = label_encoder.inverse_transform(labels_present)
+
+    # Reporte de clasificación
     st.subheader("Reporte de clasificación:")
+    classification_rep = classification_report(
+        y_test,
+        y_pred,
+        labels=labels_present,
+        target_names=target_names
+    )
     st.text(classification_rep)
 
-    # Mostrar la matriz de confusión
+    # Mostrar matriz de confusión como un gráfico
     st.subheader("Matriz de Confusión:")
-    st.write(conf_matrix)
+    conf_matrix = confusion_matrix(y_test, y_pred, labels=labels_present)
+
+    # Usar seaborn para mejorar la visualización de la matriz de confusión
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=target_names, yticklabels=target_names)
+    st.pyplot(plt)
+
+    # Mostrar la distribución de las clases predichas vs reales
+    st.subheader("Distribución de las clases predichas vs reales:")
+    results = pd.DataFrame({"Real": y_test, "Predicción": y_pred})
+    st.write(results)
+
+    # Graficar la distribución de las predicciones
+    plt.figure(figsize=(10, 6))
+    sns.countplot(x='Real', data=results, palette='viridis')
+    st.pyplot(plt)
