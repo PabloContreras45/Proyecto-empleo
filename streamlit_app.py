@@ -134,3 +134,40 @@ if st.button("Evaluar modelo"):
     plt.figure(figsize=(10, 6))
     sns.countplot(x='Real', data=results, palette='viridis')
     st.pyplot(plt)
+
+# Análisis de outliers en "sueldo_medio"
+st.subheader("Análisis de Outliers en Sueldo Medio")
+
+# Paso 1: Limpiar y convertir los valores de "sueldo_medio" a valores numéricos
+df['sueldo_medio'] = pd.to_numeric(df['sueldo_medio'].replace('[^0-9]', '', regex=True), errors='coerce')
+
+# Paso 2: Calcular los límites de los outliers usando Tukey's Fence
+q1 = df['sueldo_medio'].quantile(0.25)
+q3 = df['sueldo_medio'].quantile(0.75)
+iqr = q3 - q1
+
+# Definir los límites superior e inferior
+limite_inferior = q1 - 1.5 * iqr
+limite_superior = q3 + 1.5 * iqr
+
+# Identificar los sueldos que están fuera de estos límites
+df['Outlier'] = (df['sueldo_medio'] < limite_inferior) | (df['sueldo_medio'] > limite_superior)
+
+# Mostrar estadísticas clave
+st.write(f"**Primer Cuartil (Q1):** {q1}")
+st.write(f"**Tercer Cuartil (Q3):** {q3}")
+st.write(f"**IQR:** {iqr}")
+st.write(f"**Límite inferior:** {limite_inferior}")
+st.write(f"**Límite superior:** {limite_superior}")
+st.write(f"**Número de Outliers:** {df['Outlier'].sum()}")
+
+# Paso 3: Visualizar los datos con un gráfico
+st.subheader("Distribución de Sueldos con Outliers Identificados")
+plt.figure(figsize=(10, 6))
+sns.histplot(df, x="sueldo_medio", hue="Outlier", palette={False: "blue", True: "red"}, bins=30, kde=True)
+plt.title('Distribución de Sueldos Medios con Identificación de Outliers')
+plt.xlabel('Sueldo Medio')
+plt.ylabel('Frecuencia')
+
+# Mostrar el gráfico en Streamlit
+st.pyplot(plt)
