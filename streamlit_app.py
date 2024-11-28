@@ -4,170 +4,266 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import seaborn as sns
-import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
+import plotly.express as px
+from sklearn.preprocessing import LabelEncoder
 
-# Cargar el dataset y procesarlo
+# Configuración de página
+st.set_page_config(
+    page_title="Análisis de Vacantes y Predicción",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.image('analysis.jpg', use_container_width=True)
+
+# Cargar datos
 @st.cache_data
-def load_data():
-    # Cargar los datos desde un archivo CSV
-    df = pd.read_csv('Datos_postlimpieza.csv')
+def cargar_datos(filepath):
+    df = pd.read_csv(filepath)
+    return df
 
-    # Crear un LabelEncoder para las variables categóricas
-    label_encoder = LabelEncoder()
-    # Aplicar LabelEncoder a las columnas categóricas, excepto "Ubicación"
-    df['Puesto'] = label_encoder.fit_transform(df['Puesto'])
-    df['Expertise'] = label_encoder.fit_transform(df['Expertise'])
-    df['Servicios'] = label_encoder.fit_transform(df['Servicios'])
-    df['Habilidades'] = label_encoder.fit_transform(df['Habilidades'])
-    df['Herramientas'] = label_encoder.fit_transform(df['Herramientas'])
-    df['Educación'] = label_encoder.fit_transform(df['Educación'])
+datos = cargar_datos("datos_pre_analisis.csv")
 
-    # Eliminar columnas no necesarias para el modelo
-    df = df.drop(columns=['Título', 'Empresa', 'Modalidad', 'Sector', 'Descripción', 'Otro Idioma', 'EntornoTEC', 'Beneficios'])
+# Preprocesamiento de datos para el modelo de predicción
+@st.cache_data
+def preprocesar_datos(df):
+    # Usar LabelEncoder para transformar las columnas categóricas
+    clase_LabelEncoder = LabelEncoder()
+    df["Puesto"] = clase_LabelEncoder.fit_transform(df["Puesto"])
+    df["Expertise"] = clase_LabelEncoder.fit_transform(df["Expertise"])
+    df["Ubicación"] = clase_LabelEncoder.fit_transform(df["Ubicación"])
+    df["Servicios"] = clase_LabelEncoder.fit_transform(df["Servicios"])
+    df["Habilidades"] = clase_LabelEncoder.fit_transform(df["Habilidades"])
+    df["Herramientas"] = clase_LabelEncoder.fit_transform(df["Herramientas"])
+    df["Educación"] = clase_LabelEncoder.fit_transform(df["Educación"])
 
-    return df, label_encoder
+    # Eliminar columnas innecesarias
+    columnas_a_eliminar = ["Título", "Empresa", "Modalidad", "Sector", "Descripción", "Otro Idioma", "EntornoTEC", "Beneficios"]
+    columnas_existentes = [col for col in columnas_a_eliminar if col in df.columns]
+    df = df.drop(columns=columnas_existentes)
+    
+    return df
 
-# Función para borrar el caché y actualizar los datos
-def clear_data_cache():
-    st.cache_data.clear_cache()
-    st.success("¡Caché borrado con éxito! Los datos se actualizarán en la siguiente carga.")
+# Preprocesamos los datos para el modelo
+df = preprocesar_datos(datos)
 
-# Cargar los datos
-df, label_encoder = load_data()
+# Preparar datos para el modelo de predicción
+X = np.array(df.drop("Puesto", axis=1))
+y = np.array(df["Puesto"])
 
-# Seleccionar las columnas relevantes para el modelo
-feature_columns = ['Expertise', 'Ubicación', 'Servicios', 'Habilidades', 'Herramientas', 'Educación']
-X = df[feature_columns]  # Variables predictoras
-y = df['Puesto']  # Variable objetivo
-
-# Dividir en conjunto de entrenamiento y prueba (80% entrenamiento, 20% prueba)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
-# Crear un LabelEncoder para "Ubicación"
-ubicacion_encoder = LabelEncoder()
-X_train['Ubicación'] = ubicacion_encoder.fit_transform(X_train['Ubicación'])
-X_test['Ubicación'] = ubicacion_encoder.transform(X_test['Ubicación'])
+x_scaler = MinMaxScaler()
+X_train = x_scaler.fit_transform(X_train)
+X_test = x_scaler.transform(X_test)
 
-# Escalar las características (normalización)
-scaler = MinMaxScaler()
-X_train_scaled = scaler.fit_transform(X_train)  # Ajustar y transformar el conjunto de entrenamiento
-X_test_scaled = scaler.transform(X_test)        # Transformar el conjunto de prueba
-
-# Crear y entrenar el modelo KNN
 model = KNeighborsClassifier(n_neighbors=3)
-model.fit(X_train_scaled, y_train)
+model.fit(X_train, y_train)
 
-# Configuración de la app de Streamlit
-st.title("Clasificador de Puesto de Trabajo")
+# Predicción y precisión del modelo
+yhat = model.predict(X_test)
+accuracy = accuracy_score(y_test, yhat)
 
-# Mostrar datos crudos (opcional)
-if st.checkbox("Mostrar datos crudos"):
-    st.write(df)
+# Barra lateral: Filtros
+st.sidebar.title("Filtros Avanzados")
 
-# Interfaz de usuario para realizar predicciones
-st.subheader("Hacer una predicción")
-
-# Crear selectboxes para que el usuario seleccione valores para hacer una predicción
-expertise = st.selectbox("Seleccione su nivel de Expertise", df['Expertise'].unique())
-ubicacion = st.selectbox("Seleccione su Ubicación", df['Ubicación'].unique())
-servicios = st.selectbox("Seleccione los Servicios", df['Servicios'].unique())
-habilidades = st.selectbox("Seleccione sus Habilidades", df['Habilidades'].unique())
-herramientas = st.selectbox("Seleccione las Herramientas", df['Herramientas'].unique())
-educacion = st.selectbox("Seleccione su nivel de Educación", df['Educación'].unique())
-
-# Convertir los valores seleccionados en un array numérico para hacer la predicción
-input_data = np.array([[expertise, ubicacion, servicios, habilidades, herramientas, educacion]])
-
-# Codificar la "Ubicación" seleccionada en un número utilizando el LabelEncoder
-ubicacion_encoded = ubicacion_encoder.transform([ubicacion])[0]
-input_data[0][1] = ubicacion_encoded  # Sustituir la ubicación con el valor codificado
-
-# Escalar la entrada del usuario (aplicando el mismo escalado que a los datos)
-input_data_scaled = scaler.transform(input_data)
-
-# Realizar la predicción
-if st.button("Predecir Puesto"):
-    # Predecir el puesto de trabajo con el modelo entrenado
-    prediction = model.predict(input_data_scaled)
-    predicted_label = label_encoder.inverse_transform(prediction)[0]
-    st.write(f"El puesto de trabajo predicho es: {predicted_label}")
-
-# Evaluación del modelo
-if st.button("Evaluar modelo"):
-    y_pred = model.predict(X_test_scaled)
-
-    # Evaluar precisión
-    accuracy = accuracy_score(y_test, y_pred)
-    st.write(f"Precisión del modelo: {accuracy:.2f}")
-
-    # Extraer etiquetas presentes en y_test
-    labels_present = np.unique(y_test)
-    target_names = label_encoder.inverse_transform(labels_present)
-
-    # Reporte de clasificación
-    st.subheader("Reporte de clasificación:")
-    classification_rep = classification_report(
-        y_test,
-        y_pred,
-        labels=labels_present,
-        target_names=target_names
+# Filtro por Puesto
+with st.sidebar.expander("Filtrar por Puesto", expanded=True):
+    puestos_filtrados = st.multiselect(
+        "Selecciona Puestos de Trabajo",
+        options=datos["Puesto"].unique(),
+        default=datos["Puesto"].unique()[:5],
     )
-    st.text(classification_rep)
 
-    # Mostrar matriz de confusión como un gráfico
-    st.subheader("Matriz de Confusión:")
-    conf_matrix = confusion_matrix(y_test, y_pred, labels=labels_present)
+# Filtro por Ubicación
+with st.sidebar.expander("Filtrar por Ubicación", expanded=True):
+    ubicaciones_filtradas = st.multiselect(
+        "Selecciona Ubicaciones",
+        options=datos["Ubicación"].unique(),
+        default=datos["Ubicación"].unique()[:5],
+    )
 
-    # Usar seaborn para mejorar la visualización de la matriz de confusión
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=target_names, yticklabels=target_names)
-    st.pyplot(plt)
+# Filtro por Rango de Salario
+with st.sidebar.expander("Filtrar por Rango de Salario", expanded=True):
+    salario_min, salario_max = st.slider(
+        "Selecciona el rango de salario medio",
+        min_value=int(datos["sueldo_medio"].min()),
+        max_value=int(datos["sueldo_medio"].max()),
+        value=(int(datos["sueldo_medio"].min()), int(datos["sueldo_medio"].max())),
+        step=500,
+    )
 
-    # Mostrar la distribución de las clases predichas vs reales
-    st.subheader("Distribución de las clases predichas vs reales:")
-    results = pd.DataFrame({"Real": y_test, "Predicción": y_pred})
-    st.write(results)
+# Filtro por Nivel de Experiencia
+with st.sidebar.expander("Filtrar por Nivel de Experiencia", expanded=True):
+    niveles_experiencia = datos["Expertise"].unique()
+    experiencia_filtrada = st.multiselect(
+        "Nivel de Experiencia",
+        options=niveles_experiencia,
+        default=niveles_experiencia[:3],
+    )
 
-    # Graficar la distribución de las predicciones
-    plt.figure(figsize=(10, 6))
-    sns.countplot(x='Real', data=results, palette='viridis')
-    st.pyplot(plt)
+# Aplicar los filtros
+datos_filtrados = datos[
+    (datos["Puesto"].isin(puestos_filtrados)) &
+    (datos["Ubicación"].isin(ubicaciones_filtradas)) &
+    (datos["sueldo_medio"].between(salario_min, salario_max)) &
+    (datos["Expertise"].isin(experiencia_filtrada))
+]
 
-# Análisis de outliers en "sueldo_medio"
-st.subheader("Análisis de Outliers en Sueldo Medio")
+# Páginas de Streamlit
+pagina = st.sidebar.radio(
+    "Selecciona una página",
+    ["Análisis General", "Gráficos Específicos", "Predicción de Puestos"],
+)
 
-# Paso 1: Limpiar y convertir los valores de "sueldo_medio" a valores numéricos
-df['sueldo_medio'] = pd.to_numeric(df['sueldo_medio'].replace('[^0-9]', '', regex=True), errors='coerce')
+# Página 1: Análisis General
+if pagina == "Análisis General":
+    st.title("📊 Análisis General de Vacantes")
+    st.markdown("### Resumen del dataset filtrado")
 
-# Paso 2: Calcular los límites de los outliers usando Tukey's Fence
-q1 = df['sueldo_medio'].quantile(0.25)
-q3 = df['sueldo_medio'].quantile(0.75)
-iqr = q3 - q1
+    col1, col2 = st.columns([2, 1])
 
-# Definir los límites superior e inferior
-limite_inferior = q1 - 1.5 * iqr
-limite_superior = q3 + 1.5 * iqr
+    # Gráfico 1: Distribución de sueldos
+    fig_salarios = px.histogram(
+        datos_filtrados, 
+        x="sueldo_medio", 
+        nbins=30, 
+        title="Distribución de Sueldos Medios",
+        color_discrete_sequence=["#1f77b4"]
+    )
+    col1.plotly_chart(fig_salarios, use_container_width=True)
+    col1.caption("La mayoría de los sueldos medios se encuentran concentrados en un rango específico.")
 
-# Identificar los sueldos que están fuera de estos límites
-df['Outlier'] = (df['sueldo_medio'] < limite_inferior) | (df['sueldo_medio'] > limite_superior)
+    # Gráfico 2: Vacantes por modalidad
+    modalidad_df = datos_filtrados["Modalidad"].value_counts().reset_index()
+    modalidad_df.columns = ["Modalidad", "count"]
+    fig_modalidad = px.pie(
+        modalidad_df, 
+        names="Modalidad", 
+        values="count",
+        title="Modalidad de Trabajo",
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+    col2.plotly_chart(fig_modalidad, use_container_width=True)
+    col2.caption("Este gráfico muestra las modalidades de trabajo más comunes.")
 
-# Mostrar estadísticas clave
-st.write(f"**Primer Cuartil (Q1):** {q1}")
-st.write(f"**Tercer Cuartil (Q3):** {q3}")
-st.write(f"**IQR:** {iqr}")
-st.write(f"**Límite inferior:** {limite_inferior}")
-st.write(f"**Límite superior:** {limite_superior}")
-st.write(f"**Número de Outliers:** {df['Outlier'].sum()}")
+# Página 2: Gráficos Específicos
+elif pagina == "Gráficos Específicos":
+    st.title("📈 Gráficos Específicos")
+    st.markdown("### Análisis detallado por puesto y empresa")
 
-# Paso 3: Visualizar los datos con un gráfico
-st.subheader("Distribución de Sueldos con Outliers Identificados")
-plt.figure(figsize=(10, 6))
-sns.histplot(df, x="sueldo_medio", hue="Outlier", palette={False: "blue", True: "red"}, bins=30, kde=True)
-plt.title('Distribución de Sueldos Medios con Identificación de Outliers')
-plt.xlabel('Sueldo Medio')
-plt.ylabel('Frecuencia')
+    col1, col2 = st.columns(2)
 
-# Mostrar el gráfico en Streamlit
-st.pyplot(plt)
+    # Gráfico: Puestos más comunes
+    puestos_df = datos_filtrados["Puesto"].value_counts().reset_index()
+    puestos_df.columns = ["Puesto", "count"]
+    fig_puestos = px.bar(
+        puestos_df, 
+        x="Puesto", 
+        y="count", 
+        title="Vacantes por Puesto",
+        color_discrete_sequence=["#2ca02c"]
+    )
+    col1.plotly_chart(fig_puestos, use_container_width=True)
+    col1.caption("Estos son los puestos con más ofertas disponibles.")
+
+    # Gráfico: Empresas con más vacantes
+    empresas_df = datos_filtrados["Empresa"].value_counts().head(10).reset_index()
+    empresas_df.columns = ["Empresa", "count"]
+    fig_empresas = px.bar(
+        empresas_df, 
+        x="Empresa", 
+        y="count", 
+        title="Top 10 Empresas por Vacantes",
+        color_discrete_sequence=["#ff7f0e"]
+    )
+    col2.plotly_chart(fig_empresas, use_container_width=True)
+    col2.caption("Las empresas más activas publicando ofertas.")
+
+# Página 3: Predicción de Puestos
+# Definir las características de entrada
+caracteristicas_esperadas = [
+    "Expertise", "Ubicación", "Servicios", "Habilidades", 
+    "Herramientas", "Educación", "sueldo_medio", "otra_caracteristica_1", "otra_caracteristica_2"
+]
+
+# Asegurémonos de que las entradas del usuario coincidan con las características del modelo
+# Lista de ciudades de España para el selector
+ciudades = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Zaragoza", "Málaga", "Murcia", "Palma", "Las Palmas", "Bilbao", "Alicante", "Córdoba", "Valladolid", "Vigo", "Gijón"]
+
+# Esto debería haberse hecho previamente al entrenar el modelo, pero por si no está definido:
+clase_LabelEncoder = LabelEncoder()
+
+# Suponiendo que 'datos["Puesto"]' es la columna con las clases que se usan en la predicción de puestos:
+clase_LabelEncoder.fit(datos["Puesto"])  # Codifica las clases de los puestos
+
+# Definir las opciones para el selector de nivel de experiencia y otros
+nivel_expertise = ["Principiante", "Intermedio", "Avanzado", "Experto"]
+nivel_ubicacion = ciudades  # Usamos la lista de ciudades para las ubicaciones
+
+# Características de entrada que se deben modificar con palabras
+if pagina == "Predicción de Puestos":
+    st.title("🔮 Predicción de Puestos")
+    st.markdown("### Introduce los valores para predecir el puesto más probable")
+
+    # Entradas para cada característica esperada con palabras
+    expertise = st.selectbox("Nivel de Expertise", options=nivel_expertise)
+    ubicacion = st.selectbox("Ubicación", options=ciudades)
+    servicios = st.selectbox("Beneficios", options=datos["Servicios"].unique())
+    habilidades = st.selectbox("Habilidades", options=datos["Habilidades"].unique())
+    herramientas = st.selectbox("Herramientas", options=datos["Herramientas"].unique())
+    educacion = st.selectbox("Nivel de Educación", options=datos["Educación"].unique())
+    sueldo_medio = st.number_input("Sueldo Medio", min_value=20000, max_value=200000, value=30000)
+
+    # Asegúrate de que las entradas no sean `NaN` y estén definidas
+    def get_index(value, options_list):
+        # Usamos np.where() para encontrar el índice
+        result = np.where(options_list == value)[0]
+        if result.size > 0:
+            return result[0]  # Si encontramos el valor, devolvemos el primer índice
+        else:
+            return -1  # En caso contrario, devolvemos -1
+
+    # Realizar predicción y mostrar resultados
+    if st.button("Predecir Puesto"):
+        # Convertir las entradas en los valores que espera el modelo
+        inputs = {
+            "Expertise": get_index(expertise, np.array(nivel_expertise)),
+            "Ubicación": get_index(ubicacion, np.array(nivel_ubicacion)),
+            "Servicios": get_index(servicios, np.array(datos["Servicios"].unique())),
+            "Habilidades": get_index(habilidades, np.array(datos["Habilidades"].unique())),
+            "Herramientas": get_index(herramientas, np.array(datos["Herramientas"].unique())),
+            "Educación": get_index(educacion, np.array(datos["Educación"].unique())),
+            "sueldo_medio": sueldo_medio
+        }
+
+        # Si alguno de los valores es -1, significa que no fue seleccionado correctamente
+        if -1 in inputs.values():
+            st.error("Por favor, asegúrate de seleccionar opciones válidas para todas las características.")
+        else:
+            # Asegurarse de que estamos pasando todas las características necesarias (9 en total)
+            # Agregar valores para las características faltantes
+            inputs_completos = np.array([
+                inputs["Expertise"], inputs["Ubicación"], inputs["Servicios"], 
+                inputs["Habilidades"], inputs["Herramientas"], inputs["Educación"], 
+                inputs["sueldo_medio"], 0, 0  # Las características faltantes que se necesitan
+            ])
+
+            # Escalar las entradas
+            inputs_completos_scaled = x_scaler.transform([inputs_completos])
+
+            # Obtener las probabilidades de las clases
+            probabilidad = model.predict_proba(inputs_completos_scaled)
+
+            # Mostrar las probabilidades en porcentaje para cada clase
+            clases = clase_LabelEncoder.classes_  # Las clases disponibles (puestos)
+            probabilidad = probabilidad[0] * 100  # Convertir a porcentaje
+
+            # Mostrar el puesto más probable y sus probabilidades
+            st.write("El puesto más probable es:", clase_LabelEncoder.inverse_transform([np.argmax(probabilidad)])[0])
+            st.write("Probabilidades de cada puesto:")
+
+            for i, clase in enumerate(clases):
+                st.write(f"{clase}: {probabilidad[i]:.2f}%")
