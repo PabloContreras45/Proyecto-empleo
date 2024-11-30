@@ -67,6 +67,53 @@ def pagina_principal():
         </div>
     """, unsafe_allow_html=True)
 
+     # Descripción del proyecto
+    st.markdown("""
+        ### 📝 Descripción del Proyecto:
+        Este **proyecto de análisis de vacantes de empleo** tiene como objetivo proporcionar a los usuarios 
+        una herramienta interactiva para explorar una amplia variedad de ofertas de trabajo. Se utiliza un 
+        dataset de vacantes para ofrecer insights valiosos sobre las tendencias en el mercado laboral y 
+        cómo los diferentes factores influyen en la disponibilidad y los salarios de los puestos de trabajo.
+        
+        Además, la aplicación incluye un **modelo de predicción** que permite a los usuarios obtener 
+        recomendaciones personalizadas sobre los puestos que podrían ser los más adecuados para sus 
+        habilidades, ubicación y experiencia laboral. El modelo ayuda a los usuarios a descubrir nuevas 
+        oportunidades de trabajo que quizás no habían considerado.
+
+        #### Principales características de la aplicación:
+        - **Exploración interactiva de vacantes**: Los usuarios pueden visualizar y filtrar las vacantes por 
+          diferentes criterios, como el puesto, ubicación, salario, entre otros.
+        - **Visualización avanzada**: A través de gráficos interactivos, los usuarios pueden observar la 
+          distribución de salarios por puesto y por ubicación, facilitando la toma de decisiones.
+        - **Predicción de puestos**: El modelo de predicción ofrece recomendaciones personalizadas, sugiriendo 
+          el puesto de trabajo más adecuado en función de parámetros introducidos por el usuario (por ejemplo, 
+          nivel de experiencia, tipo de habilidades, y ubicación).
+        - **Análisis de tendencias**: La herramienta ofrece la capacidad de ver cómo las vacantes y los salarios 
+          evolucionan con el tiempo, ayudando a los usuarios a identificar patrones y oportunidades.
+          
+        #### ¿Cómo puede ayudarte esta herramienta?
+        - Si eres **reclutador**, podrás obtener una visión clara de las vacantes más solicitadas y el rango 
+          salarial esperado para diferentes puestos.
+        - Si eres **candidato a un puesto de trabajo**, la aplicación te proporcionará las vacantes más 
+          relevantes y ajustadas a tu perfil, optimizando tu búsqueda de empleo.
+        - Si eres **analista de datos** o simplemente tienes interés en el mercado laboral, esta herramienta 
+          te permitirá obtener insights profundos y hacer un análisis detallado de las tendencias del empleo.
+
+        ### 📈 Visualiza el futuro del empleo
+        A través de un análisis detallado y visualizaciones claras, podrás identificar las tendencias y los 
+        cambios en el mercado laboral. Nuestra herramienta proporciona las bases para realizar decisiones informadas 
+        y mejorar tu búsqueda de empleo o estrategia de reclutamiento.
+
+        #### 🔍 ¿Qué datos estamos analizando?
+        - **Puestos de trabajo**: Desde roles técnicos hasta posiciones ejecutivas.
+        - **Ubicación de los puestos**: Descubre en qué lugares están las vacantes más demandadas.
+        - **Rangos salariales**: Visualiza y compara los rangos salariales de diferentes vacantes.
+        - **Características del puesto**: Analiza los requisitos y habilidades demandadas por las empresas.
+
+        ### 🚀 Empezar es fácil
+        Comienza a explorar las vacantes, filtra los datos según tus preferencias, y aprovecha el modelo de 
+        predicción para obtener recomendaciones personalizadas. ¡Todo desde una interfaz intuitiva y fácil de usar!
+    """, unsafe_allow_html=True)
 
 # Página de exploración de datos
 def pagina_exploracion(df):
