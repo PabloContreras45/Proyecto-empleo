@@ -252,8 +252,8 @@ def pagina_prediccion():
 # Función para la página de Power BI
 def pagina_powerbi():
     st.header("📊 Panel de Power BI - Análisis de Vacantes")
-    powerbi_width = 600
-    powerbi_height = 373.5
+    powerbi_width = 1500
+    powerbi_height = 673.5
     
     st.markdown(f'''
         <iframe title="03-Proyecto_empleo_BI" width="{powerbi_width}" height="{powerbi_height}" 
